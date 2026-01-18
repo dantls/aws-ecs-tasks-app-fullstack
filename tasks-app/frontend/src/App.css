@@ -13,11 +13,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding: 16px;
+  padding: 16px 24px;
   background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
 }
 
 .language-selector, .theme-toggle {

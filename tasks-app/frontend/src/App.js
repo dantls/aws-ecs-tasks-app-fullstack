@@ -136,35 +136,35 @@ const App = () => {
   return (
     <Router>
       <div className="App">
+        <div className="theme-controls">
+          <div className="language-selector">
+            <button 
+              className={`lang-btn ${language === 'en' ? 'active' : ''}`}
+              onClick={() => setLanguage('en')}
+            >
+              EN
+            </button>
+            <button 
+              className={`lang-btn ${language === 'pt' ? 'active' : ''}`}
+              onClick={() => setLanguage('pt')}
+            >
+              PT
+            </button>
+          </div>
+          <button 
+            className="theme-toggle" 
+            onClick={() => setDarkMode(!darkMode)}
+          >
+            {darkMode ? '☀️' : '🌙'} {darkMode ? 'Light' : 'Dark'}
+          </button>
+        </div>
+
         <div className="container">
           <Route
             path="/"
             exact
             render={(props) => (
               <>
-                <div className="theme-controls">
-                  <div className="language-selector">
-                    <button 
-                      className={`lang-btn ${language === 'en' ? 'active' : ''}`}
-                      onClick={() => setLanguage('en')}
-                    >
-                      EN
-                    </button>
-                    <button 
-                      className={`lang-btn ${language === 'pt' ? 'active' : ''}`}
-                      onClick={() => setLanguage('pt')}
-                    >
-                      PT
-                    </button>
-                  </div>
-                  <button 
-                    className="theme-toggle" 
-                    onClick={() => setDarkMode(!darkMode)}
-                  >
-                    {darkMode ? '☀️' : '🌙'} {darkMode ? 'Light' : 'Dark'}
-                  </button>
-                </div>
-                
                 <Header
                   onAdd={() => setShowAddTask(!showAddTask)}
                   showAdd={showAddTask}
