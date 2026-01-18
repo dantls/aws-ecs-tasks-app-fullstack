@@ -52,10 +52,13 @@ const App = () => {
     }
   };
 
+  // API Base URL - works for both local and production
+  const API_URL = process.env.REACT_APP_API_URL || '';
+
   // Fetch tasks
   const fetchTasks = async () => {
     const endpoint = language === 'en' ? '/api/tasks' : '/api/tarefas';
-    const res = await fetch(endpoint);
+    const res = await fetch(`${API_URL}${endpoint}`);
     const data = await res.json();
     return data;
   };
@@ -63,7 +66,7 @@ const App = () => {
   // Fetch task
   const fetchTask = async (id) => {
     const endpoint = language === 'en' ? `/api/tasks/${id}` : `/api/tarefas/${id}`;
-    const res = await fetch(endpoint);
+    const res = await fetch(`${API_URL}${endpoint}`);
     const data = await res.json();
     return data;
   };
@@ -85,7 +88,7 @@ const App = () => {
   // Add Task
   const addTask = async (task) => {
     const endpoint = language === 'en' ? '/api/tasks' : '/api/tarefas';
-    const res = await fetch(endpoint, {
+    const res = await fetch(`${API_URL}${endpoint}`, {
       method: "POST",
       headers: {
         "Content-type": "application/json",
@@ -101,7 +104,7 @@ const App = () => {
   // Delete Task
   const deleteTask = async (id) => {
     const endpoint = language === 'en' ? `/api/tasks/${id}` : `/api/tarefas/${id}`;
-    const res = await fetch(endpoint, {
+    const res = await fetch(`${API_URL}${endpoint}`, {
       method: "DELETE",
     });
     //We should control the response status to decide if we will change the state or not.
@@ -116,7 +119,7 @@ const App = () => {
     const updTask = { ...taskToToggle, reminder: !taskToToggle.reminder };
 
     const endpoint = language === 'en' ? `/api/tasks/update_priority/${id}` : `/api/tarefas/update_priority/${id}`;
-    const res = await fetch(endpoint, {
+    const res = await fetch(`${API_URL}${endpoint}`, {
       method: "PUT",
       headers: {
         "Content-type": "application/json",

@@ -12,4 +12,5 @@ ENV DISABLE_ESLINT_PLUGIN=true
 
 EXPOSE 3000
 
+# Development mode - uses proxy from package.json
 CMD ["npm", "start"]
