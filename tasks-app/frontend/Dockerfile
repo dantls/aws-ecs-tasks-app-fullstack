@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:18-alpine
 
 WORKDIR /app
 
@@ -6,13 +6,10 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
-RUN DISABLE_ESLINT_PLUGIN=true NODE_OPTIONS=--openssl-legacy-provider npm run build
 
-FROM nginx:alpine
+ENV NODE_OPTIONS=--openssl-legacy-provider
+ENV DISABLE_ESLINT_PLUGIN=true
 
-COPY --from=builder /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 3000
 
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "start"]
