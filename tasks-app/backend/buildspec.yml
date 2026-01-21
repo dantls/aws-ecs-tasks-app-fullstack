@@ -8,37 +8,70 @@ phases:
   pre_build:
     commands:
       - echo "Build started on $(date)"
-      - echo "Logging in to Amazon ECR..."
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
-      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - IMAGE_TAG=${COMMIT_HASH:=latest}
-      - echo "Commit hash - $IMAGE_TAG"
+      - echo "Checking for backend changes..."
+      - |
+        if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || echo "tasks-app/backend/")
+        else
+          CHANGED_FILES="tasks-app/backend/"
+        fi
+      - echo "Changed files - $CHANGED_FILES"
+      - |
+        if echo "$CHANGED_FILES" | grep -q "^tasks-app/backend/"; then
+          echo "Backend changes detected, proceeding with build..."
+          export SHOULD_BUILD="true"
+        else
+          echo "No backend changes detected, skipping build..."
+          export SHOULD_BUILD="false"
+        fi
+      - echo "SHOULD_BUILD=$SHOULD_BUILD"
+      - |
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Logging in to Amazon ECR..."
+          aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
+          COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+          export IMAGE_TAG=${COMMIT_HASH:=latest}
+          echo "Commit hash - $IMAGE_TAG"
+        else
+          export IMAGE_TAG="skip"
+        fi
 
   build:
     commands:
-      - echo "Building Docker image..."
-      - cd tasks-app/backend
-      - docker build -t $ECR_REPOSITORY_URI:latest .
-      - docker tag $ECR_REPOSITORY_URI:latest $ECR_REPOSITORY_URI:$IMAGE_TAG
-      - echo "Build completed on $(date)"
+      - |
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Building Docker image..."
+          cd tasks-app/backend
+          docker build -t $ECR_REPOSITORY_URI:latest .
+          docker tag $ECR_REPOSITORY_URI:latest $ECR_REPOSITORY_URI:$IMAGE_TAG
+          echo "Build completed on $(date)"
+        else
+          echo "Skipping build - no backend changes detected"
+        fi
 
   post_build:
     commands:
-      - echo "Pushing images to ECR..."
-      - docker push $ECR_REPOSITORY_URI:latest
-      - docker push $ECR_REPOSITORY_URI:$IMAGE_TAG
-      - echo "Creating new task definition..."
-      - sed "s|IMAGE_TAG|$IMAGE_TAG|g" aws/task-definition.json > /tmp/task-def.json
-      - cat /tmp/task-def.json
-      - NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file:///tmp/task-def.json --region $AWS_DEFAULT_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
-      - echo "New task definition - $NEW_TASK_DEF_ARN"
-      - echo "Updating ECS service..."
-      - aws ecs update-service --cluster $ECS_CLUSTER_NAME --service $ECS_SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --region $AWS_DEFAULT_REGION
-      - echo "Generating imagedefinitions.json..."
-      - cd ../..
-      - printf '[{"name":"tasks","imageUri":"%s"}]' $ECR_REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
-      - cat imagedefinitions.json
-      - echo "Deployment completed!"
+      - |
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Pushing images to ECR..."
+          docker push $ECR_REPOSITORY_URI:latest
+          docker push $ECR_REPOSITORY_URI:$IMAGE_TAG
+          echo "Creating new task definition..."
+          sed "s|IMAGE_TAG|$IMAGE_TAG|g" aws/task-definition.json > /tmp/task-def.json
+          cat /tmp/task-def.json
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file:///tmp/task-def.json --region $AWS_DEFAULT_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "New task definition - $NEW_TASK_DEF_ARN"
+          echo "Updating ECS service..."
+          aws ecs update-service --cluster $ECS_CLUSTER_NAME --service $ECS_SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --region $AWS_DEFAULT_REGION
+          echo "Generating imagedefinitions.json..."
+          cd ../..
+          printf '[{"name":"tasks","imageUri":"%s"}]' $ECR_REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+          cat imagedefinitions.json
+          echo "Deployment completed!"
+        else
+          echo "Skipping deployment - no backend changes"
+          printf '[]' > imagedefinitions.json
+        fi
 
 artifacts:
   files:
