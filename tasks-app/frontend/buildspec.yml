@@ -9,6 +9,8 @@ phases:
     commands:
       - echo "Build started on $(date)"
       - |
+        # Fetch previous commit for comparison
+        git fetch --depth=2 origin 2>/dev/null || true
         CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null)
 
         if [ -z "$CHANGED_FILES" ]; then
