@@ -11,13 +11,16 @@ phases:
       - echo "Checking for backend changes..."
       - |
         if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || echo "tasks-app/backend/")
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          if [ -z "$CHANGED_FILES" ]; then
+            CHANGED_FILES="tasks-app/backend/"
+          fi
         else
           CHANGED_FILES="tasks-app/backend/"
         fi
       - echo "Changed files - $CHANGED_FILES"
       - |
-        if echo "$CHANGED_FILES" | grep -q "^tasks-app/backend/"; then
+        if echo "$CHANGED_FILES" | grep -q "tasks-app/backend"; then
           echo "Backend changes detected, proceeding with build..."
           export SHOULD_BUILD="true"
         else
