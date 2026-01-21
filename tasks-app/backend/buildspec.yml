@@ -13,11 +13,11 @@ phases:
         if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
           CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
         else
-          CHANGED_FILES="backend/"
+          CHANGED_FILES="tasks-app/backend/"
         fi
       - echo "Changed files - $CHANGED_FILES"
       - |
-        if echo "$CHANGED_FILES" | grep -q "^backend/"; then
+        if echo "$CHANGED_FILES" | grep -q "^tasks-app/backend/"; then
           echo "Backend changes detected, proceeding with build..."
           export SHOULD_BUILD=true
         else
@@ -38,7 +38,7 @@ phases:
       - |
         if [ "$SHOULD_BUILD" = "true" ]; then
           echo "Building Docker image..."
-          cd backend
+          cd tasks-app/backend
           docker build -t $ECR_REPOSITORY_URI:latest .
           docker tag $ECR_REPOSITORY_URI:latest $ECR_REPOSITORY_URI:$IMAGE_TAG
           echo "Build completed on $(date)"
@@ -54,18 +54,17 @@ phases:
           docker push $ECR_REPOSITORY_URI:latest
           docker push $ECR_REPOSITORY_URI:$IMAGE_TAG
           echo "Creating new task definition..."
-          cd /codebuild/output/src*/src/tasks-app/backend
-          TASK_DEF=$(cat aws/task-definition.json | sed "s|IMAGE_TAG|$IMAGE_TAG|g")
+          TASK_DEF=$(cat tasks-app/backend/aws/task-definition.json | sed "s|IMAGE_TAG|$IMAGE_TAG|g")
           NEW_TASK_DEF_ARN=$(echo "$TASK_DEF" | aws ecs register-task-definition --cli-input-json file:///dev/stdin --region $AWS_DEFAULT_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "New task definition: $NEW_TASK_DEF_ARN"
           echo "Updating ECS service..."
           aws ecs update-service --cluster $ECS_CLUSTER_NAME --service $ECS_SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --region $AWS_DEFAULT_REGION
           echo "Generating imagedefinitions.json for CodePipeline..."
-          printf '[{"name":"tasks","imageUri":"%s"}]' $ECR_REPOSITORY_URI:$IMAGE_TAG > /codebuild/output/src*/src/imagedefinitions.json
+          printf '[{"name":"tasks","imageUri":"%s"}]' $ECR_REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
           echo "Deployment completed!"
         else
           echo "No deployment needed."
-          echo "[]" > /codebuild/output/src*/src/imagedefinitions.json
+          echo "[]" > imagedefinitions.json
         fi
 
 artifacts:
