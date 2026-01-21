@@ -75,6 +75,6 @@ env:
   variables:
     AWS_DEFAULT_REGION: us-east-1
   parameter-store:
-    ECR_REPOSITORY_URI: /tasks-app/backend/ecr-repository-uri
-    ECS_CLUSTER_NAME: /tasks-app/backend/ecs-cluster
-    ECS_SERVICE_NAME: /tasks-app/backend/ecs-service
+    ECR_REPOSITORY_URI: /tasks-app/prod/ecr-repository-uri
+    ECS_CLUSTER_NAME: /tasks-app/prod/ecs-cluster
+    ECS_SERVICE_NAME: /tasks-app/prod/ecs-service
