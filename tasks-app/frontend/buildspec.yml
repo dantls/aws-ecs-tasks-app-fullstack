@@ -46,5 +46,6 @@ env:
     NODE_ENV: production
     GENERATE_SOURCEMAP: "false"
     CI: "false"
+    NODE_OPTIONS: "--openssl-legacy-provider"
   parameter-store:
     S3_BUCKET_NAME: /tasks-app/frontend/s3-bucket
