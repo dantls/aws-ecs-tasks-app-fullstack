@@ -31,6 +31,9 @@ phases:
       - echo "SHOULD_BUILD=$SHOULD_BUILD"
       - |
         if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Getting API URL from SSM..."
+          export REACT_APP_API_URL=$(aws ssm get-parameter --name /tasks-app/prod/api-url --query Parameter.Value --output text --region us-east-1)
+          echo "API URL: $REACT_APP_API_URL"
           echo "Installing dependencies..."
           cd tasks-app/frontend
           npm install
