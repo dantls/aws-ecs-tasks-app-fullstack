@@ -8,43 +8,19 @@ phases:
   pre_build:
     commands:
       - echo "Build started on $(date)"
-      - echo "Checking for backend changes..."
-      - |
-        if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-        else
-          CHANGED_FILES="tasks-app/backend/"
-        fi
-      - echo "Changed files - $CHANGED_FILES"
-      - |
-        if echo "$CHANGED_FILES" | grep -q "^tasks-app/backend/"; then
-          echo "Backend changes detected, proceeding with build..."
-          export SHOULD_BUILD=true
-        else
-          echo "No backend changes detected, skipping build..."
-          export SHOULD_BUILD=false
-        fi
-      - |
-        if [ "$SHOULD_BUILD" = "true" ]; then
-          echo "Logging in to Amazon ECR..."
-          aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
-          COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-          IMAGE_TAG=${COMMIT_HASH:=latest}
-          echo "Commit hash - $IMAGE_TAG"
-        fi
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - echo "Commit hash - $IMAGE_TAG"
 
   build:
     commands:
-      - |
-        if [ "$SHOULD_BUILD" = "true" ]; then
-          echo "Building Docker image..."
-          cd tasks-app/backend
-          docker build -t $ECR_REPOSITORY_URI:latest .
-          docker tag $ECR_REPOSITORY_URI:latest $ECR_REPOSITORY_URI:$IMAGE_TAG
-          echo "Build completed on $(date)"
-        else
-          echo "Skipping build phase..."
-        fi
+      - echo "Building Docker image..."
+      - cd tasks-app/backend
+      - docker build -t $ECR_REPOSITORY_URI:latest .
+      - docker tag $ECR_REPOSITORY_URI:latest $ECR_REPOSITORY_URI:$IMAGE_TAG
+      - echo "Build completed on $(date)"
 
   post_build:
     commands:
