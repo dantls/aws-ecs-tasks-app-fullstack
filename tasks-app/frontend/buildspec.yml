@@ -1,9 +1,5 @@
 version: 0.2
 
-# 🚀 CodeBuild para Frontend React
-# Deploy automático para S3 + CloudFront
-# Só executa se houver mudanças no frontend/
-
 phases:
   install:
     runtime-versions:
@@ -12,21 +8,20 @@ phases:
   pre_build:
     commands:
       - echo "Build started on $(date)"
-      - echo "Checking for frontend changes..."
       - |
+        # Check if there are frontend changes
         if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || echo "tasks-app/frontend/")
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          if echo "$CHANGED_FILES" | grep -q "^tasks-app/frontend/"; then
+            echo "Frontend changes detected"
+            export SHOULD_BUILD="true"
+          else
+            echo "No frontend changes detected, skipping build"
+            export SHOULD_BUILD="false"
+          fi
         else
-          CHANGED_FILES="tasks-app/frontend/"
-        fi
-      - echo "Changed files - $CHANGED_FILES"
-      - |
-        if echo "$CHANGED_FILES" | grep -q "^tasks-app/frontend/"; then
-          echo "Frontend changes detected, proceeding with build..."
+          echo "Manual trigger or first build, building everything"
           export SHOULD_BUILD="true"
-        else
-          echo "No frontend changes detected, skipping build..."
-          export SHOULD_BUILD="false"
         fi
       - echo "SHOULD_BUILD=$SHOULD_BUILD"
       - |
@@ -37,8 +32,6 @@ phases:
           echo "Installing dependencies..."
           cd tasks-app/frontend
           npm install
-          echo "Node version:" && node --version
-          echo "NPM version:" && npm --version
         fi
 
   build:
@@ -50,7 +43,7 @@ phases:
           npm run build
           echo "Build completed on $(date)"
         else
-          echo "Skipping build - no frontend changes detected"
+          echo "Skipping build"
         fi
 
   post_build:
@@ -61,27 +54,19 @@ phases:
           aws s3 sync build/ s3://$S3_BUCKET_NAME --delete
           echo "Frontend deployment completed!"
         else
-          echo "Skipping deployment - no frontend changes"
+          echo "Skipping deployment"
           mkdir -p build
           echo "skipped" > build/index.html
         fi
 
 artifacts:
   files:
-    - '**/*'
-  base-directory: tasks-app/frontend/build
-  name: frontend-build-$(date +%Y-%m-%d-%H-%M-%S)
-  discard-paths: no
-
-cache:
-  paths:
-    - frontend/node_modules/**/*
+    - build/**/*
 
 env:
   variables:
     NODE_ENV: production
     GENERATE_SOURCEMAP: "false"
     CI: "false"
-    NODE_OPTIONS: "--openssl-legacy-provider"
   parameter-store:
     S3_BUCKET_NAME: /tasks-app/frontend/s3-bucket
