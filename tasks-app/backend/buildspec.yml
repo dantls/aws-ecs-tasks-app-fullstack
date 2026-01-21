@@ -11,13 +11,11 @@ phases:
       - echo "Checking for backend changes..."
       - |
         if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
-          # Webhook trigger - compara com commit anterior
           CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
         else
-          # Manual trigger - assume que precisa fazer deploy
           CHANGED_FILES="backend/"
         fi
-      - echo "Changed files: $CHANGED_FILES"
+      - echo "Changed files - $CHANGED_FILES"
       - |
         if echo "$CHANGED_FILES" | grep -q "^backend/"; then
           echo "Backend changes detected, proceeding with build..."
@@ -32,7 +30,7 @@ phases:
           aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
           COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
           IMAGE_TAG=${COMMIT_HASH:=latest}
-          echo "Commit hash: $IMAGE_TAG"
+          echo "Commit hash - $IMAGE_TAG"
         fi
 
   build:
