@@ -26,11 +26,13 @@ phases:
     commands:
       - echo "Deploying to S3..."
       - aws s3 sync build/ s3://$S3_BUCKET_NAME --delete
+      - cd ../..
       - echo "Frontend deployment completed!"
 
 artifacts:
   files:
-    - build/**/*
+    - tasks-app/frontend/build/**/*
+  base-directory: .
 
 env:
   variables:
