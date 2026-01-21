@@ -5,20 +5,19 @@ phases:
     commands:
       - echo "Build started on $(date)"
       - |
-        # Check if there are backend changes
-        if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-          if echo "$CHANGED_FILES" | grep -q "^tasks-app/backend/"; then
-            echo "Backend changes detected"
-            export SHOULD_BUILD="true"
-          else
-            echo "No backend changes detected, skipping build"
-            export SHOULD_BUILD="false"
-          fi
-        else
-          echo "Manual trigger or first build, building everything"
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null)
+
+        if [ -z "$CHANGED_FILES" ]; then
+          echo "Could not detect changed files, building to be safe"
           export SHOULD_BUILD="true"
+        elif echo "$CHANGED_FILES" | grep -q "^tasks-app/backend/"; then
+          echo "Backend changes detected"
+          export SHOULD_BUILD="true"
+        else
+          echo "Changes detected, but not in backend. Skipping build"
+          export SHOULD_BUILD="false"
         fi
+
       - echo "SHOULD_BUILD=$SHOULD_BUILD"
       - |
         if [ "$SHOULD_BUILD" = "true" ]; then
