@@ -1,10 +1,19 @@
 var express = require("express");
+var cors = require("cors");
 var logger = require("morgan");
 var path = require("path");
 var session = require("express-session");
 var methodOverride = require("method-override");
 
 var app = express();
+
+// CORS - must be first
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
 // define a custom res.message() method
 // which stores messages in the session
