@@ -8,61 +8,25 @@ phases:
   pre_build:
     commands:
       - echo "Build started on $(date)"
-      - |
-        # Fetch previous commit for comparison
-        git fetch --depth=2 origin 2>/dev/null || true
-        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null)
-
-        if [ -z "$CHANGED_FILES" ]; then
-          echo "Could not detect changed files, building to be safe"
-          export SHOULD_BUILD="true"
-        elif echo "$CHANGED_FILES" | grep -q "^tasks-app/frontend/"; then
-          echo "Frontend changes detected"
-          export SHOULD_BUILD="true"
-        else
-          echo "Changes detected, but not in frontend. Skipping build"
-          export SHOULD_BUILD="false"
-        fi
-
-      - echo "SHOULD_BUILD=$SHOULD_BUILD"
-      - |
-        if [ "$SHOULD_BUILD" = "true" ]; then
-          echo "Getting API URL from SSM..."
-          export REACT_APP_API_URL=$(aws ssm get-parameter \
-            --name /tasks-app/prod/api-url \
-            --query Parameter.Value \
-            --output text \
-            --region us-east-1)
-
-          echo "Installing dependencies..."
-          cd tasks-app/frontend
-          npm install
-        fi
+      - echo "Getting API URL from SSM..."
+      - export REACT_APP_API_URL=$(aws ssm get-parameter --name /tasks-app/prod/api-url --query Parameter.Value --output text --region us-east-1)
+      - echo "API URL: $REACT_APP_API_URL"
+      - echo "Installing dependencies..."
+      - cd tasks-app/frontend
+      - npm install
 
   build:
     commands:
-      - |
-        if [ "$SHOULD_BUILD" = "true" ]; then
-          echo "Building React application..."
-          export NODE_OPTIONS=--openssl-legacy-provider
-          npm run build
-          echo "Build completed on $(date)"
-        else
-          echo "Skipping build"
-        fi
+      - echo "Building React application..."
+      - export NODE_OPTIONS=--openssl-legacy-provider
+      - npm run build
+      - echo "Build completed on $(date)"
 
   post_build:
     commands:
-      - |
-        if [ "$SHOULD_BUILD" = "true" ]; then
-          echo "Deploying to S3..."
-          aws s3 sync build/ s3://$S3_BUCKET_NAME --delete
-          echo "Frontend deployment completed!"
-        else
-          echo "Skipping deployment"
-          mkdir -p build
-          echo "skipped" > build/index.html
-        fi
+      - echo "Deploying to S3..."
+      - aws s3 sync build/ s3://$S3_BUCKET_NAME --delete
+      - echo "Frontend deployment completed!"
 
 artifacts:
   files:
