@@ -15,25 +15,24 @@ phases:
       - echo "Checking for frontend changes..."
       - |
         if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
-          # Webhook trigger - compara com commit anterior
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || echo "tasks-app/frontend/")
         else
-          # Manual trigger - assume que precisa fazer deploy
-          CHANGED_FILES="frontend/"
+          CHANGED_FILES="tasks-app/frontend/"
         fi
-      - echo "Changed files: $CHANGED_FILES"
+      - echo "Changed files - $CHANGED_FILES"
       - |
-        if echo "$CHANGED_FILES" | grep -q "^frontend/"; then
+        if echo "$CHANGED_FILES" | grep -q "^tasks-app/frontend/"; then
           echo "Frontend changes detected, proceeding with build..."
-          export SHOULD_BUILD=true
+          export SHOULD_BUILD="true"
         else
           echo "No frontend changes detected, skipping build..."
-          export SHOULD_BUILD=false
+          export SHOULD_BUILD="false"
         fi
+      - echo "SHOULD_BUILD=$SHOULD_BUILD"
       - |
         if [ "$SHOULD_BUILD" = "true" ]; then
           echo "Installing dependencies..."
-          cd frontend
+          cd tasks-app/frontend
           npm ci --only=production
           echo "Node version:" && node --version
           echo "NPM version:" && npm --version
