@@ -54,17 +54,18 @@ phases:
           docker push $ECR_REPOSITORY_URI:latest
           docker push $ECR_REPOSITORY_URI:$IMAGE_TAG
           echo "Creating new task definition..."
+          cd /codebuild/output/src*/src/tasks-app/backend
           TASK_DEF=$(cat aws/task-definition.json | sed "s|IMAGE_TAG|$IMAGE_TAG|g")
           NEW_TASK_DEF_ARN=$(echo "$TASK_DEF" | aws ecs register-task-definition --cli-input-json file:///dev/stdin --region $AWS_DEFAULT_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "New task definition: $NEW_TASK_DEF_ARN"
           echo "Updating ECS service..."
           aws ecs update-service --cluster $ECS_CLUSTER_NAME --service $ECS_SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --region $AWS_DEFAULT_REGION
           echo "Generating imagedefinitions.json for CodePipeline..."
-          printf '[{"name":"tasks","imageUri":"%s"}]' $ECR_REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+          printf '[{"name":"tasks","imageUri":"%s"}]' $ECR_REPOSITORY_URI:$IMAGE_TAG > /codebuild/output/src*/src/imagedefinitions.json
           echo "Deployment completed!"
         else
           echo "No deployment needed."
-          echo "[]" > imagedefinitions.json
+          echo "[]" > /codebuild/output/src*/src/imagedefinitions.json
         fi
 
 artifacts:
