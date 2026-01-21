@@ -46,7 +46,7 @@ const App = () => {
       addTaskPlaceholder: "Adicionar Tarefa",
       addDayPlaceholder: "Adicionar Dia e Hora",
       pleaseAddTask: "Por favor adicione uma tarefa",
-      version: "Versão 1.0.0",
+      version: "Versão 1.0.1",
       builtWith: "Rastreador de tarefas construído com React",
       goBack: "Voltar"
     }
