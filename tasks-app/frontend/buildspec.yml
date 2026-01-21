@@ -14,7 +14,7 @@ phases:
       - echo "Build started on $(date)"
       - echo "Installing dependencies..."
       - cd tasks-app/frontend
-      - npm ci --only=production
+      - npm ci
       - echo "Node version:" && node --version
       - echo "NPM version:" && npm --version
 
