@@ -1,61 +1,82 @@
 version: 0.2
 
-# 🚀 CodeBuild para Backend Node.js
-# Deploy automático para ECS
+# BuildSpec para Backend Tasks App
+# Build Docker image, push para ECR e deploy no ECS
+# Só executa se houver mudanças no backend/
 
 phases:
-  install:
-    runtime-versions:
-      nodejs: 18
-    commands:
-      - echo "Installing dependencies..."
-      - npm ci --only=production
-
   pre_build:
     commands:
-      - echo "Running pre-build tasks..."
-      - echo "Build started on `date`"
-      - echo "Node version:" && node --version
-      - echo "NPM version:" && npm --version
-      - echo "Running tests..."
-      - npm test || echo "No tests found"
+      - echo "Build started on $(date)"
+      - echo "Checking for backend changes..."
+      - |
+        if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
+          # Webhook trigger - compara com commit anterior
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+        else
+          # Manual trigger - assume que precisa fazer deploy
+          CHANGED_FILES="backend/"
+        fi
+      - echo "Changed files: $CHANGED_FILES"
+      - |
+        if echo "$CHANGED_FILES" | grep -q "^backend/"; then
+          echo "Backend changes detected, proceeding with build..."
+          export SHOULD_BUILD=true
+        else
+          echo "No backend changes detected, skipping build..."
+          export SHOULD_BUILD=false
+        fi
+      - |
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Logging in to Amazon ECR..."
+          aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
+          COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+          IMAGE_TAG=${COMMIT_HASH:=latest}
+          echo "Commit hash: $IMAGE_TAG"
+        fi
 
   build:
     commands:
-      - echo "Building backend application..."
-      - echo "Creating deployment package..."
-      - zip -r backend-deployment.zip . -x "node_modules/*" "*.git*" "buildspec.yml"
-      - echo "Build completed on `date`"
+      - |
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Building Docker image..."
+          cd backend
+          docker build -t $ECR_REPOSITORY_URI:latest .
+          docker tag $ECR_REPOSITORY_URI:latest $ECR_REPOSITORY_URI:$IMAGE_TAG
+          echo "Build completed on $(date)"
+        else
+          echo "Skipping build phase..."
+        fi
 
   post_build:
     commands:
-      - echo "Deploying to Elastic Beanstalk..."
       - |
-        VERSION_LABEL="backend-$(date +%Y%m%d-%H%M%S)"
-        aws s3 cp backend-deployment.zip s3://$EB_BUCKET_NAME/$VERSION_LABEL.zip
-        aws elasticbeanstalk create-application-version \
-          --application-name $EB_APPLICATION_NAME \
-          --version-label $VERSION_LABEL \
-          --source-bundle S3Bucket=$EB_BUCKET_NAME,S3Key=$VERSION_LABEL.zip
-        aws elasticbeanstalk update-environment \
-          --environment-name $EB_ENVIRONMENT_NAME \
-          --version-label $VERSION_LABEL
-      - echo "Backend deployment completed!"
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Pushing images to ECR..."
+          docker push $ECR_REPOSITORY_URI:latest
+          docker push $ECR_REPOSITORY_URI:$IMAGE_TAG
+          echo "Creating new task definition..."
+          TASK_DEF=$(cat aws/task-definition.json | sed "s|IMAGE_TAG|$IMAGE_TAG|g")
+          NEW_TASK_DEF_ARN=$(echo "$TASK_DEF" | aws ecs register-task-definition --cli-input-json file:///dev/stdin --region $AWS_DEFAULT_REGION --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "New task definition: $NEW_TASK_DEF_ARN"
+          echo "Updating ECS service..."
+          aws ecs update-service --cluster $ECS_CLUSTER_NAME --service $ECS_SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --region $AWS_DEFAULT_REGION
+          echo "Generating imagedefinitions.json for CodePipeline..."
+          printf '[{"name":"tasks","imageUri":"%s"}]' $ECR_REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+          echo "Deployment completed!"
+        else
+          echo "No deployment needed."
+          echo "[]" > imagedefinitions.json
+        fi
 
 artifacts:
   files:
-    - backend-deployment.zip
-  name: backend-build-$(date +%Y-%m-%d-%H-%M-%S)
-
-cache:
-  paths:
-    - node_modules/**/*
+    - imagedefinitions.json
 
 env:
   variables:
-    NODE_ENV: production
+    AWS_DEFAULT_REGION: us-east-1
   parameter-store:
-    EB_APPLICATION_NAME: /tasks-app/backend/eb-application
-    EB_ENVIRONMENT_NAME: /tasks-app/backend/eb-environment
-    EB_BUCKET_NAME: /tasks-app/backend/eb-bucket
-    DATABASE_URL: /tasks-app/backend/database-url
+    ECR_REPOSITORY_URI: /tasks-app/backend/ecr-repository-uri
+    ECS_CLUSTER_NAME: /tasks-app/backend/ecs-cluster
+    ECS_SERVICE_NAME: /tasks-app/backend/ecs-service

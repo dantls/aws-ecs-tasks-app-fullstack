@@ -2,45 +2,74 @@ version: 0.2
 
 # 🚀 CodeBuild para Frontend React
 # Deploy automático para S3 + CloudFront
+# Só executa se houver mudanças no frontend/
 
 phases:
   install:
     runtime-versions:
       nodejs: 18
-    commands:
-      - echo "Installing dependencies..."
-      - npm ci --only=production
 
   pre_build:
     commands:
-      - echo "Running pre-build tasks..."
-      - echo "Build started on `date`"
-      - echo "Node version:" && node --version
-      - echo "NPM version:" && npm --version
+      - echo "Build started on $(date)"
+      - echo "Checking for frontend changes..."
+      - |
+        if [ -n "$CODEBUILD_WEBHOOK_TRIGGER" ]; then
+          # Webhook trigger - compara com commit anterior
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+        else
+          # Manual trigger - assume que precisa fazer deploy
+          CHANGED_FILES="frontend/"
+        fi
+      - echo "Changed files: $CHANGED_FILES"
+      - |
+        if echo "$CHANGED_FILES" | grep -q "^frontend/"; then
+          echo "Frontend changes detected, proceeding with build..."
+          export SHOULD_BUILD=true
+        else
+          echo "No frontend changes detected, skipping build..."
+          export SHOULD_BUILD=false
+        fi
+      - |
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Installing dependencies..."
+          cd frontend
+          npm ci --only=production
+          echo "Node version:" && node --version
+          echo "NPM version:" && npm --version
+        fi
 
   build:
     commands:
-      - echo "Building React application..."
-      - npm run build
-      - echo "Build completed on `date`"
+      - |
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Building React application..."
+          npm run build
+          echo "Build completed on $(date)"
+        else
+          echo "Skipping build phase..."
+        fi
 
   post_build:
     commands:
-      - echo "Deploying to S3..."
-      - aws s3 sync build/ s3://$S3_BUCKET_NAME --delete
-      - echo "Invalidating CloudFront cache..."
-      - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
-      - echo "Frontend deployment completed!"
+      - |
+        if [ "$SHOULD_BUILD" = "true" ]; then
+          echo "Deploying to S3..."
+          aws s3 sync build/ s3://$S3_BUCKET_NAME --delete
+          echo "Frontend deployment completed!"
+        else
+          echo "No deployment needed."
+        fi
 
 artifacts:
   files:
     - '**/*'
-  base-directory: build
+  base-directory: frontend/build
   name: frontend-build-$(date +%Y-%m-%d-%H-%M-%S)
 
 cache:
   paths:
-    - node_modules/**/*
+    - frontend/node_modules/**/*
 
 env:
   variables:
@@ -49,4 +78,3 @@ env:
     CI: "false"
   parameter-store:
     S3_BUCKET_NAME: /tasks-app/frontend/s3-bucket
-    CLOUDFRONT_DISTRIBUTION_ID: /tasks-app/frontend/cloudfront-id
