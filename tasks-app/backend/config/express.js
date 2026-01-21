@@ -8,6 +8,14 @@ var bodyParser = require("body-parser");
 module.exports = () => {
   const app = express();
 
+  // CORS deve vir primeiro
+  app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  }));
+
   // SETANDO VARIÁVEIS DA APLICAÇÃO
   app.set("port", process.env.PORT || config.get("server.port"));
 
@@ -17,12 +25,6 @@ module.exports = () => {
   // parse request bodies (req.body)
   app.use(express.urlencoded({ extended: true }));
   app.use(bodyParser.json());
-
-  app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }));
 
   require("../api/routes/tasks")(app);
 
